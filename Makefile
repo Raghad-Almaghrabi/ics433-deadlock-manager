@@ -14,8 +14,11 @@ run: all
 	./build/deadlock_manager
 build/test_state: tests/test_state.c src/state.c src/input.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_state.c src/state.c src/input.c -o $@
-test: all build/test_state
+build/test_detection: tests/test_detection.c src/detection.c src/state.c src/input.c $(HEADERS) | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_detection.c src/detection.c src/state.c src/input.c -o $@
+test: all build/test_state build/test_detection
 	./build/test_state
+	./build/test_detection
 	python3 tests/test_cli.py
 clean:
 	rm -rf build

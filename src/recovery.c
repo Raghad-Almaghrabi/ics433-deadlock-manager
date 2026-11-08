@@ -13,17 +13,20 @@ ModuleStatus recovery_run(SystemState *state, RecoveryLog *log)
 {
     DetectionResult result;
     SystemState next;
-    RecoveryLog new_log = {0};
+    RecoveryLog new_log;
 
     // Step 1: Validate inputs
     if (state == NULL || log == NULL)
         return MODULE_ERROR;
 
-    if (!state_validate(state, NULL, 0))
+    if (log->count < 0 || log->count > MAX_RECOVERY_ACTIONS ||
+        !state_validate(state, NULL, 0))
         return MODULE_ERROR;
 
     // Work on a copy to protect the original state
     next = *state;
+    // Append to the existing history; only loading a scenario resets it.
+    new_log = *log;
 
     // Step 2: Detect deadlocked processes
     while (1)

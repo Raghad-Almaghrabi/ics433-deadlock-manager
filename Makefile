@@ -16,9 +16,15 @@ build/test_state: tests/test_state.c src/state.c src/input.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_state.c src/state.c src/input.c -o $@
 build/test_detection: tests/test_detection.c src/detection.c src/state.c src/input.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_detection.c src/detection.c src/state.c src/input.c -o $@
-test: all build/test_state build/test_detection
+build/test_avoidance: tests/test_avoidance.c src/avoidance.c src/detection.c src/state.c src/input.c $(HEADERS) | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_avoidance.c src/avoidance.c src/detection.c src/state.c src/input.c -o $@
+build/test_recovery: tests/test_recovery.c src/recovery.c src/detection.c src/state.c $(HEADERS) | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_recovery.c src/recovery.c src/detection.c src/state.c -o $@
+test: all build/test_state build/test_detection build/test_avoidance build/test_recovery
 	./build/test_state
 	./build/test_detection
+	./build/test_avoidance
+	./build/test_recovery
 	python3 tests/test_cli.py
 clean:
 	rm -rf build

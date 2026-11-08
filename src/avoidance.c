@@ -21,7 +21,6 @@ ModuleStatus avoidance_safety(const SystemState *state, SafetyResult *result) {
     }
 
     for (int p = 0; p < state->process_count; ++p) {
-        // Non-active (completed or terminated) processes are considered already finished
         finish[p] = (state->status[p] != PROCESS_ACTIVE);
     }
 
@@ -40,7 +39,6 @@ ModuleStatus avoidance_safety(const SystemState *state, SafetyResult *result) {
                 }
 
                 if (can_finish) {
-                    // Simulate process completion: add its allocation back to Work
                     for (int r = 0; r < state->resource_count; ++r) {
                         work[r] += state->allocation[p][r];
                     }
@@ -75,7 +73,6 @@ ModuleStatus avoidance_request(SystemState *state, int pid, const int request[],
         return MODULE_ERROR;
     }
 
-    // Ensure the requesting process is active
     if (state->status[pid] != PROCESS_ACTIVE) {
         *decision = REQUEST_INVALID;
         return MODULE_OK;
@@ -83,12 +80,8 @@ ModuleStatus avoidance_request(SystemState *state, int pid, const int request[],
 
     // Step 1: Check if request exceeds remaining Need or currently Available resources
     for (int r = 0; r < state->resource_count; ++r) {
-        if (request[r] > state->need[pid][r]) {
+        if (request[r] > state->need[pid][r] || request[r] > state->available[r]) {
             *decision = REQUEST_INVALID;
-            return MODULE_OK;
-        }
-        if (request[r] > state->available[r]) {
-            *decision = REQUEST_DEFERRED_INSUFFICIENT;
             return MODULE_OK;
         }
     }
@@ -108,9 +101,9 @@ ModuleStatus avoidance_request(SystemState *state, int pid, const int request[],
         return status;
     }
 
-    // Step 4 & 5: Commit changes if safe, otherwise reject/defer as unsafe
+    // Step 4 & 5: Commit changes if safe, otherwise reject as unsafe
     if (safety_res.safe) {
-        *state = temp_state; // Commit permanent changes to the real state
+        *state = temp_state;
         *decision = REQUEST_GRANTED;
     } else {
         *decision = REQUEST_UNSAFE;

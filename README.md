@@ -21,20 +21,20 @@ Requirements: a C11 compiler and Make. Python 3 is used only by the terminal int
 
 On Ubuntu, install these tools if needed:
 
-```sh
+```bash
 sudo apt install build-essential python3
 ```
 
 From the project root:
 
-```sh
+```bash
 make
 make run
 ```
 
 For the full automated checks:
 
-```sh
+```bash
 make test
 ```
 
@@ -60,48 +60,33 @@ All process and resource IDs are zero-based: P0, P1, ... and R0, R1, .... Resour
 
 ## Shared state and validation
 
-The initial implementation uses fixed-size arrays for up to 20 processes, 10 resource types, and 1,000,000 instances of each resource type. Work units are nonnegative C integers.
+The simulator supports up to 20 processes, 10 resource types, and 1,000,000 instances per type. It validates nonnegative input and maintains:
 
-- For every resource type, `Available + sum(Allocation) = Total`.
-- For active processes, `Need = Max - Allocation`.
-- Resource entries satisfy `0 <= Allocation <= Max <= Total` and `0 <= Request <= Need`.
-- A pending request may exceed Available; this represents a waiting process.
-- Scenario loading derives Available and Need and accepts resource-consistent safe, unsafe, and deadlocked states.
-- A failed load preserves both the previous state and recovery history. Successfully loading a new scenario resets recovery history.
-- Normal release reduces Allocation and increases Available and the active process's Need. It does not automatically retry pending requests.
-- Explicit completion is permitted only for an active process without a pending request. It returns all allocations, clears Need and Request, and marks the process completed. Max is an upper bound, so completion does not require Need to have reached zero.
-- Completed and terminated processes retain historical Max and completed work, hold/request nothing, have Need zero, and are excluded from algorithm processing.
+- `Available + sum(Allocation) = Total`
+- `Need = Max - Allocation` for active processes
+- `0 <= Allocation <= Max <= Total` and `0 <= Request <= Need`
 
-Fixed-size arrays simplify ownership of the shared state. This differs from the dynamic-array checks mentioned in Phase 1 and should be reflected in the architecture description.
+Invalid scenario loads preserve the current state and history; successful loads reset recovery history. Releases return resources to Available. Completion returns all held resources and removes the process from active analysis.
 
 ## Resource requests and safety
 
-A submitted request replaces that process's previous pending vector; it is not added to it.
+Requests exceeding Need or containing negative values are rejected. Unavailable or unsafe requests remain pending without changing allocations. A tentative allocation is committed only if Banker's safety check succeeds; granted requests are cleared.
 
-1. Reject negative values and requests exceeding remaining Need without changing the state.
-2. If resources are unavailable, retain the request as pending and return `REQUEST_UNAVAILABLE` without changing allocations.
-3. Otherwise, allocate on a copy, clear that process's pending request in the copy, and run the safety check.
-4. Commit a safe allocation and return `REQUEST_GRANTED`; otherwise discard the tentative allocation, retain the submitted request as pending, and return `REQUEST_UNSAFE`.
+New requests replace previous pending requests. Retry them through option 4; a zero vector cancels the pending request.
 
-A zero vector cancels the current pending request without allocating resources. Waiting requests must be retried explicitly through option 4 after the state changes.
-
-Safety uses remaining maximum Need. Detection uses current outstanding Request. Failure to find a safe sequence means the state is unsafe; it does not itself establish deadlock. Likewise, detection finding no current deadlock does not prove safety.
+Safety uses **Need**, while detection uses current **Request**. An unsafe state does not necessarily mean deadlock, and no detected deadlock does not prove safety.
 
 ## Detection and recovery policy
 
-Detection starts with Available and simulates completion for processes whose current requests can be met. It assumes such a process can eventually finish and release its allocations. Active processes with no allocated resources cannot hold resources in a deadlock and are excluded from the deadlocked set. Detection does not change the state.
+Detection simulates completion when current requests can be satisfied, assuming those processes can finish and release their allocations. It does not modify the state.
 
-Recovery follows the original proposal: automatically select a deadlocked process with the least completed work, breaking ties by the lowest PID. Terminate it, return its allocations to Available, clear its Allocation/Need/Request, record the victim, resources returned and work lost, and rerun detection. Repeat until no deadlock remains.
+Recovery repeatedly terminates the deadlocked process with the least completed work, breaking ties by lowest PID. It returns resources, records the victim and work lost, and reruns detection. This reduces discarded work but may require multiple victims.
 
-Choosing the least-work victim aims to reduce discarded work, although it may require more terminations than another selection policy. Recovery is triggered by confirmed deadlock, not merely by an unsafe state.
-
-Recovery records are kept in memory for the current scenario. Later recovery calls preserve earlier entries and append new actions; a call with no deadlock leaves history intact. Recovery works on copies and commits only after successful completion, so an error such as insufficient log capacity preserves the original state and history.
-
-Termination is the implemented recovery strategy. Resource preemption, rollback, priorities, and timeouts are not implemented; they are optional extensions rather than part of this core implementation.
+Recovery history is preserved until a new scenario is loaded. Recovery commits only on success. Resource preemption and rollback are not implemented.
 
 ## Scenario format
 
-Files contain whitespace-separated integers without labels or comments:
+Files contain whitespace-separated integers without comments:
 
 ```text
 process_count resource_count
@@ -110,27 +95,20 @@ P0 Max vector
 P0 Allocation vector
 P0 outstanding Request vector
 P0 work_done
-...repeat the four process fields for every remaining process...
+...repeat the four process fields for each remaining process...
 ```
 
-All imported processes start active. Available and Need are calculated from Total, Max, and Allocation.
+Processes start active; Available and Need are calculated automatically.
 
 | Scenario | Safety result | Detection result |
 | --- | --- | --- |
-| `scenarios/safe.txt` | Safe; one sequence is P1 P3 P4 P0 P2 | No confirmed deadlock |
-| `scenarios/unsafe.txt` | Unsafe | No confirmed deadlock: current requests are zero |
-| `scenarios/deadlocked.txt` | Unsafe | P0 and P1 are deadlocked |
-| `scenarios/invalid.txt` | Input rejected: combined allocations exceed Total | Previous state preserved |
+| `scenarios/safe.txt` | Safe; one sequence is P1 P3 P4 P0 P2 | No deadlock |
+| `scenarios/unsafe.txt` | Unsafe | No deadlock; current requests are zero |
+| `scenarios/deadlocked.txt` | Unsafe | P0 and P1 deadlocked |
+| `scenarios/invalid.txt` | Invalid: allocations exceed Total | Previous state preserved |
 
-### Safe request demonstration
+## Demonstrations
 
-Load `scenarios/safe.txt` using option 2. Choose option 4, PID `1`, vector `1 0 2`. The request is granted and Available becomes `2 3 0`.
-
-### Unsafe request demonstration
-
-Load a fresh `scenarios/safe.txt`. Choose option 4, PID `4`, vector `3 3 0`. The request fits Need and Available, but the tentative allocation is unsafe. It is deferred; Available remains `3 3 2`, allocations stay unchanged, and P4's pending Request becomes `3 3 0`.
-
-### Deadlock and recovery demonstration
-
-Load `scenarios/deadlocked.txt`. Option 8 reports P0 and P1. Option 9 terminates P1, returns `0 1`, and records 2 work units lost. Option 8 then reports no confirmed deadlock. Use option 10 to display the recovery record; selecting option 9 again preserves that record.
-dated architecture, screenshots, challenges and remaining work.
+- **Safe request:** load `scenarios/safe.txt`, choose option 4, PID `1`, vector `1 0 2`. Granted; Available becomes `2 3 0`.
+- **Unsafe request:** reload `scenarios/safe.txt`, choose option 4, PID `4`, vector `3 3 0`. Deferred; allocations and Available remain unchanged, and the request is recorded.
+- **Recovery:** load `scenarios/deadlocked.txt`. Option 8 reports P0 and P1; option 9 terminates P1, returns `0 1`, and records 2 work units lost. Option 8 then reports no deadlock; option 10 displays the log. Repeating option 9 preserves the record.

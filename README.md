@@ -133,39 +133,4 @@ Load a fresh `scenarios/safe.txt`. Choose option 4, PID `4`, vector `3 3 0`. The
 ### Deadlock and recovery demonstration
 
 Load `scenarios/deadlocked.txt`. Option 8 reports P0 and P1. Option 9 terminates P1, returns `0 1`, and records 2 work units lost. Option 8 then reports no confirmed deadlock. Use option 10 to display the recovery record; selecting option 9 again preserves that record.
-
-## Source layout and assigned responsibilities
-
-| Path | Purpose | Assigned owner |
-| --- | --- | --- |
-| `include/state.h`, `src/state.c` | Shared state, validation, display, normal release and completion | Raghad |
-| `include/input.h`, `src/input.c` | Keyboard and file scenario input | Raghad |
-| `src/main.c`, `Makefile` | Terminal integration and build/test commands | Raghad |
-| `include/modules.h` | Shared algorithm interfaces and result types | Team |
-| `src/avoidance.c` | Banker's safety and resource requests | Dena |
-| `src/detection.c` | Multi-instance deadlock detection | Farah |
-| `src/recovery.c` | Victim selection, termination and recovery history | Deema |
-| `scenarios/` | Safe, unsafe, deadlocked and invalid fixtures | Team |
-| `tests/` | Module and terminal integration checks | Module owners and integration |
-
-The table describes responsibility assignments; contributions should be recorded according to the work actually performed.
-
-## Verification
-
-`make test` builds and runs all five suites:
-
-| Suite | Coverage |
-| --- | --- |
-| `test_state` | Resource accounting, validation, releases, completion, scenario loading and parsing |
-| `test_detection` | Safe, unsafe and deadlocked cases, progress through resource release and zero-allocation processes |
-| `test_avoidance` | Replay of safe sequences, unsafe classification, grant/defer decisions, rollback, pending-row replacement/clearing, inactive processes and invalid arguments |
-| `test_recovery` | Victim selection, PID ties, work lost, resource reclamation, repeated calls, appended history, multiple victims and atomic capacity failure |
-| `test_cli.py` | Menu integration, grants, unsafe/unavailable requests, pending retries, detection, recovery-history preservation/reset and malformed input |
-
-All five suites pass on the corrected code. These tests establish the checked behavior; they do not claim correctness for every possible input. Verify the final copy on the team's Ubuntu environment before submission and perform the planned Valgrind check there.
-
-## Phase 2 submission
-
-Deadline: **November 10, 2026**. Submit one group progress report PDF and organized, commented C source code through GitHub or ZIP. The report should include the project recap, implemented features, updated architecture, screenshots, challenges and remaining work.
-
-Refresh the report's test results and remaining-work section after adopting these fixes. Capture evidence for unsafe without deadlock, unsafe-request deferral and post-recovery detection. Final verification, report updates and demonstration preparation remain part of submission preparation.
+dated architecture, screenshots, challenges and remaining work.

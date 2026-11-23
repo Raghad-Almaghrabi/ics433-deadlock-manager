@@ -6,15 +6,28 @@ static void module_message(ModuleStatus status) {
     if (status == MODULE_NOT_IMPLEMENTED) puts("This teammate's module is not implemented yet. State unchanged.");
     else if (status == MODULE_ERROR) puts("Module reported an error.");
 }
+
 static void print_log(const RecoveryLog *log, int resources) {
-    if (!log->count) puts("No recovery actions recorded.");
+    if (!log->count)
+        puts("No recovery actions recorded.");
+
     for (int k = 0; k < log->count; ++k) {
         const RecoveryAction *action = &log->actions[k];
-        printf("Terminated P%d; work lost: %d; resources returned:", action->victim_pid, action->work_lost);
-        for (int j = 0; j < resources; ++j) printf(" %d", action->released[j]);
+
+        printf("%s P%d; work lost: %d; resources returned:",
+               action->type == RECOVERY_ROLLBACK
+                   ? "Rolled back"
+                   : "Terminated",
+               action->victim_pid,
+               action->work_lost);
+
+        for (int j = 0; j < resources; ++j)
+            printf(" %d", action->released[j]);
+
         putchar('\n');
     }
 }
+
 static bool operation_input(const SystemState *state, int *pid, int values[]) {
     printf("Process ID (0-%d): ", state->process_count - 1);
     if (!input_vector(stdin, pid, 1, 0, state->process_count - 1) || state->status[*pid] != PROCESS_ACTIVE) {
@@ -33,12 +46,24 @@ int main(void) {
     char error[256];
     puts("ICS433 - Deadlock Detection, Avoidance, and Recovery Manager");
     for (;;) {
-        puts("\n1. Enter scenario\n2. Load scenario file\n3. Display state\n4. Request resources (avoidance)\n5. Release resources\n6. Mark process completed\n7. Check safety\n8. Detect deadlock\n9. Recover from deadlock\n10. Show recovery log\n0. Exit");
-        printf("Choice: "); fflush(stdout);
+puts("\n1. Enter scenario"
+     "\n2. Load scenario file"
+     "\n3. Display state"
+     "\n4. Request resources (avoidance)"
+     "\n5. Release resources"
+     "\n6. Mark process completed"
+     "\n7. Check safety"
+     "\n8. Detect deadlock"
+     "\n9. Recover from deadlock (termination)"
+     "\n10. Show recovery log"
+     "\n11. Recover from deadlock (rollback)"
+     "\n0. Exit");       
+        printf("Choice: "); 
+        fflush(stdout);
         int choice;
-        if (!input_vector(stdin, &choice, 1, 0, 10)) {
+       if (!input_vector(stdin, &choice, 1, 0, 11)) { 
             if (feof(stdin)) break;
-            puts("Enter one menu number from 0 to 10."); continue;
+          puts("Enter one menu number from 0 to 11."); continue;
         }
         if (choice == 0) break;
         if (choice == 1 || choice == 2) {
@@ -126,7 +151,21 @@ int main(void) {
                 if (status == MODULE_OK) { state_display(&state); print_log(&log, state.resource_count); }
                 else module_message(status);
                 break;
-            case 10: print_log(&log, state.resource_count); break;
+           case 10:
+    print_log(&log, state.resource_count);
+    break;
+
+case 11:
+    status = recovery_rollback(&state, &log);
+
+    if (status == MODULE_OK) {
+        puts("Rollback recovery completed.");
+        state_display(&state);
+        print_log(&log, state.resource_count);
+    } else {
+        puts("Rollback recovery failed. State unchanged.");
+    }
+    break;
         }
     }
     puts("Goodbye.");

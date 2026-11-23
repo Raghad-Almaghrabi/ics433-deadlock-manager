@@ -1,7 +1,7 @@
 CC = cc
 CPPFLAGS = -Iinclude
 CFLAGS = -std=c11 -Wall -Wextra -Wpedantic -Werror -g
-SOURCES = src/main.c src/state.c src/input.c src/avoidance.c src/detection.c src/recovery.c
+SOURCES = src/main.c src/state.c src/input.c src/avoidance.c src/detection.c src/recovery.c src/rollback.c
 HEADERS = include/state.h include/input.h include/modules.h
 
 .PHONY: all run test clean

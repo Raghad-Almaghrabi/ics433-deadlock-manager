@@ -68,11 +68,14 @@ ModuleStatus recovery_run(SystemState *state, RecoveryLog *log)
             }
         }
 
-        // Step 4: Prepare the recovery log entry
-        RecoveryAction *action = &new_log.actions[new_log.count];
+  // Step 4: Prepare the recovery log entry
+RecoveryAction *action = &new_log.actions[new_log.count];
 
-        action->victim_pid = victim;
-        action->work_lost = next.work_done[victim];
+// Identify this action as process termination
+action->type = RECOVERY_TERMINATION;
+
+action->victim_pid = victim;
+action->work_lost = next.work_done[victim];
 
         // Step 5: Release the victim's allocated resources
         for (int j = 0; j < next.resource_count; j++)
